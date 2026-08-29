@@ -473,7 +473,7 @@ input, select { font: inherit; color: inherit; }
 }
 .product-card {
   cursor: pointer;
-  group: true;
+ 
   animation: fadeUp .5s ease both;
 }
 @keyframes fadeUp {
