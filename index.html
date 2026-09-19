@@ -38,6 +38,12 @@
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
           <span class="badge" id="wishCount" hidden>0</span>
         </button>
+        <button class="icon-btn" id="orderBtn" aria-label="Order history" title="Order history">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 3h12v18H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
+        </button>
+        <button class="icon-btn" id="accountBtn" aria-label="Account" title="Sign in">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        </button>
         <button class="icon-btn cart-btn" id="cartBtn" aria-label="Cart">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
           <span class="badge" id="cartCount">0</span>
@@ -103,10 +109,18 @@
 
       <div class="filters" id="filters">
         <button class="filter-chip active" data-filter="all">All</button>
-        <button class="filter-chip" data-filter="basketball">Basketball</button>
-        <button class="filter-chip" data-filter="lifestyle">Lifestyle</button>
-        <button class="filter-chip" data-filter="jordan">Jordan</button>
-        <button class="filter-chip" data-filter="running">Running</button>
+        <button class="filter-chip" data-filter="aj1">AJ1</button>
+        <button class="filter-chip" data-filter="aj2">AJ2</button>
+        <button class="filter-chip" data-filter="aj3">AJ3</button>
+        <button class="filter-chip" data-filter="aj4">AJ4</button>
+        <button class="filter-chip" data-filter="aj5">AJ5</button>
+        <button class="filter-chip" data-filter="aj6">AJ6</button>
+        <button class="filter-chip" data-filter="aj7">AJ7</button>
+        <button class="filter-chip" data-filter="aj8">AJ8</button>
+        <button class="filter-chip" data-filter="aj9">AJ9</button>
+        <button class="filter-chip" data-filter="aj10">AJ10</button>
+        <button class="filter-chip" data-filter="aj11">AJ11</button>
+        <button class="filter-chip" data-filter="aj12">AJ12</button>
       </div>
 
       <div class="product-grid" id="productGrid">
@@ -149,25 +163,83 @@
         <div class="pickup-copy">
           <p class="section-eyebrow">Local in Davao</p>
           <h2 class="section-title">Pickup &amp; Delivery</h2>
-          <p class="pickup-text">Verified pairs ready for Metro Davao delivery or same-day pickup at our Lanang store. Clear peso pricing, honest stock.</p>
+          <p class="pickup-text">Verified pairs ready for Metro Davao delivery or same-day pickup at our designated Lanang lot. Clear peso pricing, honest stock.</p>
           <ul class="pickup-list">
             <li><strong>Metro Davao</strong> — ₱120 · 1–2 days</li>
             <li><strong>Nationwide</strong> — ₱180 · 3–7 days</li>
-            <li><strong>Store pickup</strong> — Free · Ready in 24 hrs (Lanang)</li>
+            <li><strong>Lanang pickup lot</strong> — Free · Ready in 24 hrs</li>
           </ul>
         </div>
         <div class="pickup-card">
           <div class="pickup-card-head">
             <span class="nearest">Nearest</span>
-            <h3>Halfcourt · Lanang</h3>
-            <small>Davao City, Davao del Sur 8000</small>
+            <h3>Designated pickup lot · Lanang</h3>
+            <small>Lanang, Davao City, Davao del Sur 8000</small>
           </div>
           <div class="pickup-details">
             <div><span>Hours</span><strong>10 AM – 8 PM</strong></div>
             <div><span>Contact</span><strong>09XX XXX XXXX</strong></div>
           </div>
-          <a href="#shop" class="btn btn-primary" style="width:100%;justify-content:center">Shop &amp; reserve</a>
+          <a href="#shop" class="btn btn-primary" style="width:100%;justify-content:center">Reserve a pair</a>
         </div>
+      </div>
+    </section>
+
+    <!-- Lanang pickup location and brand purpose -->
+    <section class="location-section" id="location">
+      <div class="location-header">
+        <p class="section-eyebrow">One pickup location in Davao</p>
+        <h2 class="section-title">Designated pickup lot · Lanang</h2>
+        <p>Reserve your pair online, then collect it at the designated Lanang pickup lot. We do not operate a retail storefront at this location.</p>
+      </div>
+      <div class="location-layout">
+        <div class="map-frame">
+          <iframe
+            title="Designated HalfCourt Shoe pickup lot in Lanang, Davao City"
+            src="https://www.google.com/maps?q=Lanang%2C%20Davao%20City&output=embed"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade">
+          </iframe>
+        </div>
+        <div class="location-details">
+          <p class="section-eyebrow">Pickup details</p>
+          <h3>One designated lot · Lanang</h3>
+          <p>Lanang, Davao City, Davao del Sur 8000</p>
+          <div class="location-facts">
+            <span><strong>Hours</strong>10 AM – 8 PM</span>
+            <span><strong>Ready</strong>Within 24 hrs</span>
+            <span><strong>Fee</strong>Free pickup</span>
+          </div>
+          <a class="btn btn-primary" href="https://www.google.com/maps/search/?api=1&query=Lanang%2C%20Davao%20City" target="_blank" rel="noopener">Open in Google Maps ↗</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="purpose-section" id="purpose">
+      <div class="purpose-header">
+        <p class="section-eyebrow">Why HalfCourt exists</p>
+        <h2 class="section-title">Built for the local sneaker community.</h2>
+      </div>
+      <div class="purpose-grid">
+        <article class="purpose-card">
+          <p class="section-eyebrow">Mission</p>
+          <h3>Make the right pair easier to find.</h3>
+          <p>To provide sneakerheads and casual buyers in Davao City with access to high-demand, authentic Jordan pairs and popular everyday kicks through transparent pricing and convenient local delivery.</p>
+        </article>
+        <article class="purpose-card">
+          <p class="section-eyebrow">Vision</p>
+          <h3>Davao’s trusted sneaker destination.</h3>
+          <p>To be Davao City’s most trusted local destination for authentic Jordan sneakers and lifestyle footwear.</p>
+        </article>
+        <article class="purpose-card purpose-goals">
+          <p class="section-eyebrow">Goals</p>
+          <h3>What we commit to.</h3>
+          <ul>
+            <li><strong>Local accessibility:</strong> Popular silhouettes ready for Lanang pickup or fast Metro Davao delivery.</li>
+            <li><strong>Transparent pricing:</strong> Straightforward Peso pricing with no hidden markup fees.</li>
+            <li><strong>Community trust:</strong> Authentic inventory and responsive local customer support.</li>
+          </ul>
+        </article>
       </div>
     </section>
 
@@ -237,6 +309,9 @@
 
   <!-- Wishlist Drawer -->
   <div class="drawer-root" id="wishRoot"></div>
+
+  <!-- Order History Drawer -->
+  <div class="drawer-root" id="orderRoot"></div>
 
   <!-- Checkout Modal -->
   <div class="modal-root" id="checkoutRoot"></div>

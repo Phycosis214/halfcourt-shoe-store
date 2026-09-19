@@ -1,12 +1,12 @@
 /* ===== Products (PHP pricing · Davao stock) ===== */
-const PRODUCTS = [
+const FALLBACK_PRODUCTS = [
   {
     id: 'aj1-high-red',
     name: 'Air Jordan 1 High',
     colorway: 'Chicago',
     category: 'jordan',
     type: 'basketball',
-    price: 10995,
+    price: 5995,
     stock: 8,
     sizes: ['7','7.5','8','8.5','9','9.5','10','11','12'],
     image: 'images/air jordan high red.png',
@@ -19,10 +19,10 @@ const PRODUCTS = [
     colorway: 'Panda',
     category: 'jordan',
     type: 'lifestyle',
-    price: 6995,
+    price: 4995,
     stock: 12,
     sizes: ['6','6.5','7','7.5','8','8.5','9','9.5','10','11'],
-    image: 'images/aird Jordan 1 Low Panda.png',
+    image: 'images/air-jordan-1-low-panda-transparent.png',
     badge: null,
     desc: 'Clean black and white contrast. Everyday versatility with authentic Jordan DNA.'
   },
@@ -32,7 +32,7 @@ const PRODUCTS = [
     colorway: 'Black Cement',
     category: 'jordan',
     type: 'basketball',
-    price: 12495,
+    price: 7000,
     stock: 5,
     sizes: ['8','8.5','9','9.5','10','11','12'],
     image: 'images/Nike Air Jordan 3 Retro OG Black Cement.png',
@@ -45,7 +45,7 @@ const PRODUCTS = [
     colorway: 'Bred',
     category: 'jordan',
     type: 'basketball',
-    price: 12995,
+    price: 7000,
     stock: 6,
     sizes: ['7','7.5','8','8.5','9','9.5','10','11'],
     image: 'images/air jordan 4 bred.png',
@@ -58,7 +58,7 @@ const PRODUCTS = [
     colorway: 'White Oreo',
     category: 'jordan',
     type: 'lifestyle',
-    price: 11995,
+    price: 7000,
     stock: 9,
     sizes: ['6.5','7','7.5','8','8.5','9','9.5','10','11','12'],
     image: 'images/air jordan 4 white oreo.png',
@@ -71,7 +71,7 @@ const PRODUCTS = [
     colorway: 'Fire Red',
     category: 'jordan',
     type: 'basketball',
-    price: 11995,
+    price: 5995,
     stock: 4,
     sizes: ['8','8.5','9','9.5','10','11'],
     image: 'images/air jordan 5 fire red.png',
@@ -84,7 +84,7 @@ const PRODUCTS = [
     colorway: 'Infrared',
     category: 'jordan',
     type: 'basketball',
-    price: 11995,
+    price: 5995,
     stock: 7,
     sizes: ['7','7.5','8','8.5','9','9.5','10','11','12'],
     image: 'images/air jordan 6 ifrared.png',
@@ -97,7 +97,7 @@ const PRODUCTS = [
     colorway: 'Chile Red',
     category: 'jordan',
     type: 'lifestyle',
-    price: 11495,
+    price: 4995,
     stock: 3,
     sizes: ['8','8.5','9','9.5','10'],
     image: 'images/air jordan 9 chile red.png',
@@ -110,7 +110,7 @@ const PRODUCTS = [
     colorway: 'Concord',
     category: 'jordan',
     type: 'basketball',
-    price: 13495,
+    price: 6495,
     stock: 10,
     sizes: ['6','7','7.5','8','8.5','9','9.5','10','11','12'],
     image: 'images/air jordan 11 concord.png',
@@ -123,7 +123,7 @@ const PRODUCTS = [
     colorway: 'Flu Game',
     category: 'jordan',
     type: 'basketball',
-    price: 12495,
+    price: 6495,
     stock: 5,
     sizes: ['7.5','8','8.5','9','9.5','10','11'],
     image: 'images/air jordan 12 flugame.png',
@@ -133,11 +133,14 @@ const PRODUCTS = [
 ];
 
 const ALL_SIZES = ['6','6.5','7','7.5','8','8.5','9','9.5','10','11','12'];
-const SHIP_OPTIONS = [
+const FALLBACK_SHIP_OPTIONS = [
   { id: 'metro', label: 'Metro Davao delivery', eta: '1–2 days', fee: 120 },
   { id: 'nation', label: 'Nationwide delivery', eta: '3–7 days', fee: 180 },
   { id: 'pickup', label: 'Pickup at Lanang store', eta: 'Ready in 24 hrs', fee: 0 }
 ];
+
+let PRODUCTS = FALLBACK_PRODUCTS;
+let SHIP_OPTIONS = FALLBACK_SHIP_OPTIONS;
 
 /* ===== State (persisted) ===== */
 let activeFilter = 'all';
@@ -146,11 +149,50 @@ let cart = JSON.parse(localStorage.getItem('nike_cart') || '[]');
 let wishlist = JSON.parse(localStorage.getItem('nike_wish') || '[]');
 let selectedShip = 'metro';
 let selectedSize = null;
+let currentUser = null;
 
 const $ = id => document.getElementById(id);
 const money = n => '₱' + Number(n).toLocaleString('en-PH');
 const saveCart = () => localStorage.setItem('nike_cart', JSON.stringify(cart));
 const saveWish = () => localStorage.setItem('nike_wish', JSON.stringify(wishlist));
+
+async function apiRequest(action, method = 'GET', body) {
+  const response = await fetch(`api.php?action=${action}`, {
+    method,
+    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    credentials: 'same-origin',
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+async function loadCatalog() {
+  try {
+    const response = await fetch('api.php');
+    if (!response.ok) throw new Error('Catalog API unavailable');
+    const catalog = await response.json();
+    const fallbackById = new Map(FALLBACK_PRODUCTS.map(product => [product.id, product]));
+
+    if (Array.isArray(catalog.products) && catalog.products.length) {
+      PRODUCTS = catalog.products.map(product => ({
+        ...fallbackById.get(product.id),
+        ...product,
+        sizes: product.sizes?.length ? product.sizes : fallbackById.get(product.id)?.sizes || [],
+        image: product.image_url || fallbackById.get(product.id)?.image || '',
+        desc: fallbackById.get(product.id)?.desc || '',
+        category: fallbackById.get(product.id)?.category || 'jordan',
+        type: fallbackById.get(product.id)?.type || 'basketball'
+      }));
+    }
+    if (Array.isArray(catalog.shipping) && catalog.shipping.length) {
+      SHIP_OPTIONS = catalog.shipping;
+    }
+  } catch (error) {
+    console.warn('Using local catalog fallback:', error.message);
+  }
+}
 
 function toast(msg) {
   const root = $('toastRoot');
@@ -159,14 +201,89 @@ function toast(msg) {
   window._toastT = setTimeout(() => root.innerHTML = '', 2800);
 }
 
+async function loadCurrentUser() {
+  try {
+    const data = await apiRequest('me');
+    currentUser = data.user;
+  } catch (error) {
+    currentUser = null;
+  }
+  updateAccountButton();
+}
+
+function updateAccountButton() {
+  const button = $('accountBtn');
+  if (!button) return;
+  button.title = currentUser ? `Signed in as ${currentUser.name}` : 'Sign in';
+  button.setAttribute('aria-label', button.title);
+}
+
+function openAccount() {
+  const root = $('modalRoot');
+  const render = (mode = 'login', error = '') => {
+    const register = mode === 'register';
+    root.innerHTML = `
+      <div class="backdrop" id="accountBack">
+        <div class="modal" style="grid-template-columns:1fr;max-width:440px">
+          <button class="close-btn" id="closeAccount">×</button>
+          <form class="checkout-form" id="accountForm">
+            <div class="eyebrow">HalfCourt members</div>
+            <h2>${currentUser ? `Hi, ${currentUser.name}` : register ? 'Create your account' : 'Welcome back'}</h2>
+            ${currentUser ? `<p class="modal-desc">${currentUser.email}<br>Contact: ${currentUser.contact_number || 'Not provided'}<br>Address: ${currentUser.address || 'Not provided'}</p><button type="button" class="btn btn-primary" id="signOut" style="width:100%;margin-bottom:10px">Sign out</button><button type="button" class="btn btn-secondary" id="closeAccountAction" style="width:100%">Continue shopping</button>` : `
+              ${register ? '<div class="field"><label>Full name *</label><input id="accountName" required autocomplete="name"></div><div class="field"><label>Contact number *</label><input type="tel" id="accountContact" required autocomplete="tel" inputmode="tel" placeholder="09XX XXX XXXX"></div><div class="field"><label>Address *</label><input id="accountAddress" required autocomplete="street-address" placeholder="Street, barangay, city"></div>' : ''}
+              <div class="field"><label>Email *</label><input type="email" id="accountEmail" required autocomplete="email"></div>
+              <div class="field"><label>Password *</label><input type="password" id="accountPassword" minlength="6" required autocomplete="${register ? 'new-password' : 'current-password'}"></div>
+              <div id="accountError" class="error-msg" style="display:${error ? 'block' : 'none'}">${error}</div>
+              <button type="submit" class="btn btn-primary" style="width:100%">${register ? 'Create account' : 'Sign in'}</button>
+              <button type="button" class="btn btn-secondary" id="switchAccount" style="width:100%;margin-top:10px">${register ? 'Already have an account? Sign in' : 'New member? Create an account'}</button>
+            `}
+          </form>
+        </div>
+      </div>`;
+    $('closeAccount').onclick = () => root.innerHTML = '';
+    $('accountBack').onclick = event => { if (event.target.id === 'accountBack') root.innerHTML = ''; };
+    $('closeAccountAction')?.addEventListener('click', () => root.innerHTML = '');
+    $('signOut')?.addEventListener('click', async () => {
+      await apiRequest('logout');
+      currentUser = null;
+      updateAccountButton();
+      root.innerHTML = '';
+      toast('Signed out');
+    });
+    $('switchAccount')?.addEventListener('click', () => render(register ? 'login' : 'register'));
+    $('accountForm').addEventListener('submit', async event => {
+      event.preventDefault();
+      const action = register ? 'register' : 'login';
+      const body = { email: $('accountEmail').value.trim(), password: $('accountPassword').value };
+      if (register) {
+        body.name = $('accountName').value.trim();
+        body.contact_number = $('accountContact').value.trim();
+        body.address = $('accountAddress').value.trim();
+      }
+      try {
+        const data = await apiRequest(action, 'POST', body);
+        currentUser = data.user;
+        updateAccountButton();
+        root.innerHTML = '';
+        toast(register ? 'Account created' : 'Signed in');
+      } catch (requestError) {
+        render(mode, requestError.message);
+      }
+    });
+  };
+  render(currentUser ? 'login' : 'login');
+}
+
+$('accountBtn').addEventListener('click', openAccount);
+
 /* ===== Render Products ===== */
 function renderGrid() {
   const q = searchQuery.trim().toLowerCase();
   const list = PRODUCTS.filter(p => {
+    const isModelFilter = activeFilter.startsWith('aj');
     const matchFilter =
       activeFilter === 'all' ||
-      p.category === activeFilter ||
-      p.type === activeFilter;
+      (isModelFilter ? p.id.startsWith(activeFilter + '-') : p.category === activeFilter || p.type === activeFilter);
     const matchSearch =
       !q ||
       p.name.toLowerCase().includes(q) ||
@@ -176,18 +293,22 @@ function renderGrid() {
 
   const grid = $('productGrid');
   if (!list.length) {
-    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted)">No sneakers match your filters.</div>`;
+    const emptyMessage = activeFilter === 'aj2'
+      ? '<strong style="display:block;color:var(--text);font-size:18px;margin-bottom:8px">Air Jordan 2</strong>Out of stock'
+      : 'No sneakers match your filters.';
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted)">${emptyMessage}</div>`;
     return;
   }
 
   grid.innerHTML = list.map((p, i) => `
     <article class="product-card" data-id="${p.id}" style="animation-delay:${i * 0.05}s">
-      <div class="product-visual">
+      <div class="product-visual ${p.id === 'aj1-low-panda' ? 'panda-visual' : ''}">
         ${p.badge ? `<span class="product-badge">${p.badge}</span>` : ''}
         <button class="product-wish ${wishlist.includes(p.id) ? 'saved' : ''}" data-wish="${p.id}" aria-label="Wishlist">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="${wishlist.includes(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         </button>
-        <img src="${p.image}" alt="${p.name} ${p.colorway}" loading="lazy">
+        <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${p.image}" alt="${p.name} ${p.colorway}" loading="lazy">
+        <button class="product-quick" data-quick="${p.id}">Quick view / Add</button>
       </div>
       <div class="product-info">
         <div class="product-name">${p.name}</div>
@@ -216,13 +337,157 @@ function renderGrid() {
       toggleWish(btn.dataset.wish);
     });
   });
+  grid.querySelectorAll('[data-quick]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      openDetail(PRODUCTS.find(p => p.id === btn.dataset.quick));
+    });
+  });
+  setupProductMotion(grid);
+  processPandaImages(grid);
+}
+
+function setupProductMotion(scope) {
+  const revealObserver = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: .16 });
+
+  scope.querySelectorAll('.product-card').forEach((card, index) => {
+    card.style.setProperty('--reveal-delay', `${index * 55}ms`);
+    revealObserver.observe(card);
+    card.addEventListener('mousemove', event => {
+      const rect = card.getBoundingClientRect();
+      const x = (event.clientX - rect.left) / rect.width - .5;
+      const y = (event.clientY - rect.top) / rect.height - .5;
+      card.style.setProperty('--tilt-x', `${y * -5}deg`);
+      card.style.setProperty('--tilt-y', `${x * 5}deg`);
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.setProperty('--tilt-x', '0deg');
+      card.style.setProperty('--tilt-y', '0deg');
+    });
+  });
+}
+
+function animateCartFlight(product, source) {
+  const cartButton = $('cartBtn');
+  if (!source || !cartButton) return;
+  const from = source.getBoundingClientRect();
+  const to = cartButton.getBoundingClientRect();
+  const clone = source.cloneNode(true);
+  const startX = from.left + from.width / 2 - 32;
+  const startY = from.top + from.height / 2 - 32;
+  const endX = to.left + to.width / 2 - 12;
+  const endY = to.top + to.height / 2 - 12;
+  Object.assign(clone.style, {
+    position: 'fixed', left: `${startX}px`, top: `${startY}px`, width: '64px', height: '64px',
+    objectFit: 'contain', zIndex: '120', pointerEvents: 'none', margin: '0',
+    filter: 'drop-shadow(0 12px 18px rgba(0,0,0,.55))'
+  });
+  document.body.appendChild(clone);
+  clone.animate([
+    { transform: 'translate3d(0, 0, 0) scale(1) rotate(-8deg)', opacity: 1 },
+    { transform: `translate3d(${(endX - startX) * .45}px, -90px, 0) scale(.65) rotate(12deg)`, opacity: 1, offset: .55 },
+    { transform: `translate3d(${endX - startX}px, ${endY - startY}px, 0) scale(.18) rotate(0deg)`, opacity: 0 }
+  ], { duration: 760, easing: 'cubic-bezier(.22,1,.36,1)' }).onfinish = () => {
+    clone.remove();
+    cartButton.classList.remove('cart-arrived');
+    void cartButton.offsetWidth;
+    cartButton.classList.add('cart-arrived');
+  };
+}
+
+function initHeroMotion() {
+  const hero = document.querySelector('.hero');
+  if (!hero) return;
+  hero.addEventListener('mousemove', event => {
+    const rect = hero.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width - .5;
+    const y = (event.clientY - rect.top) / rect.height - .5;
+    hero.style.setProperty('--hero-x', `${x * 16}px`);
+    hero.style.setProperty('--hero-y', `${y * 12}px`);
+  });
+  hero.addEventListener('mouseleave', () => {
+    hero.style.setProperty('--hero-x', '0px');
+    hero.style.setProperty('--hero-y', '0px');
+  });
+}
+
+function processPandaImages(scope = document) {
+  scope.querySelectorAll('img.panda-photo').forEach(image => {
+    if (image.dataset.cutoutReady === 'true' || image.dataset.cutoutReady === 'done') return;
+    const process = () => {
+      if (image.dataset.cutoutReady === 'done') return;
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = image.naturalWidth;
+        canvas.height = image.naturalHeight;
+        const context = canvas.getContext('2d', { willReadFrequently: true });
+        context.drawImage(image, 0, 0);
+
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+        const { data, width, height } = pixels;
+        const visited = new Uint8Array(width * height);
+        const queue = [];
+        const cornerIndex = 0;
+        const darkBackground = Math.max(data[cornerIndex], data[cornerIndex + 1], data[cornerIndex + 2]) < 60;
+        const matchesBackground = index => {
+          const red = data[index];
+          const green = data[index + 1];
+          const blue = data[index + 2];
+          const spread = Math.max(red, green, blue) - Math.min(red, green, blue);
+          if (data[index + 3] === 0) return true;
+          if (darkBackground) return Math.max(red, green, blue) < 60 && spread < 48;
+          return Math.min(red, green, blue) > 188 && spread < 48;
+        };
+
+        for (let y = 0; y < height; y++) {
+          for (const x of [0, width - 1]) queue.push(y * width + x);
+        }
+        for (let x = 1; x < width - 1; x++) {
+          queue.push(x);
+          queue.push((height - 1) * width + x);
+        }
+
+        while (queue.length) {
+          const pixel = queue.pop();
+          if (visited[pixel]) continue;
+          visited[pixel] = 1;
+          const index = pixel * 4;
+          if (!matchesBackground(index)) continue;
+          data[index + 3] = 0;
+          const x = pixel % width;
+          const y = Math.floor(pixel / width);
+          if (x > 0) queue.push(pixel - 1);
+          if (x < width - 1) queue.push(pixel + 1);
+          if (y > 0) queue.push(pixel - width);
+          if (y < height - 1) queue.push(pixel + width);
+        }
+
+        context.putImageData(pixels, 0, 0);
+        image.src = canvas.toDataURL('image/png');
+        image.dataset.cutoutReady = 'done';
+      } catch (error) {
+        image.classList.add('panda-blend-fallback');
+        image.dataset.cutoutReady = 'done';
+      }
+    };
+    if (image.complete && image.naturalWidth) process();
+    else image.addEventListener('load', process, { once: true });
+    image.dataset.cutoutReady = 'true';
+  });
 }
 
 function renderCarousel() {
   const items = PRODUCTS.slice(0, 6);
   $('carousel').innerHTML = items.map(p => `
     <div class="carousel-card" data-id="${p.id}">
-      <img src="${p.image}" alt="${p.name}">
+      <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${p.image}" alt="${p.name}">
       <div class="carousel-info">
         <h4>${p.name}</h4>
         <span>${p.colorway} · ${money(p.price)}</span>
@@ -232,6 +497,7 @@ function renderCarousel() {
   $('carousel').querySelectorAll('.carousel-card').forEach(c => {
     c.addEventListener('click', () => openDetail(PRODUCTS.find(p => p.id === c.dataset.id)));
   });
+  processPandaImages($('carousel'));
 }
 
 /* ===== Filters & Search ===== */
@@ -277,6 +543,109 @@ function updateWishCount() {
 
 $('wishlistBtn').addEventListener('click', openWishlist);
 
+$('orderBtn').addEventListener('click', openOrderHistory);
+
+function getOrders() {
+  return JSON.parse(localStorage.getItem('nike_orders') || '[]');
+}
+
+function saveOrders(orders) {
+  localStorage.setItem('nike_orders', JSON.stringify(orders.slice(0, 20)));
+}
+
+function orderStatus(order) {
+  return order.status || 'Processing';
+}
+
+async function openOrderHistory() {
+  const root = $('orderRoot');
+  let orders = getOrders();
+  if (currentUser) {
+    try {
+      const data = await apiRequest('orders');
+      orders = data.orders.map(order => ({
+        ...order,
+        orderNo: order.order_no,
+        date: order.placed_at,
+        total: Number(order.total)
+      }));
+    } catch (error) {
+      toast(error.message);
+    }
+  }
+  root.innerHTML = `
+    <div class="drawer-backdrop" id="orderBack">
+      <aside class="drawer order-drawer">
+        <div class="drawer-head">
+          <h2>Order history</h2>
+          <button class="close-btn" id="closeOrders">×</button>
+        </div>
+        <div class="drawer-items order-history-list">
+          ${orders.length ? orders.map((order, index) => `
+            <button class="order-history-item" data-order-index="${index}">
+              <span><strong>${order.orderNo}</strong><small>${new Date(order.date).toLocaleDateString('en-PH')}</small></span>
+              <span><strong>${money(order.total)}</strong><small class="status-${orderStatus(order).toLowerCase()}">${orderStatus(order)}</small></span>
+            </button>
+          `).join('') : '<div class="empty-state">No orders yet.<br>Your completed orders will appear here.</div>'}
+        </div>
+      </aside>
+    </div>
+  `;
+  $('closeOrders').onclick = () => root.innerHTML = '';
+  $('orderBack').onclick = e => { if (e.target.id === 'orderBack') root.innerHTML = ''; };
+  root.querySelectorAll('[data-order-index]').forEach(item => {
+    item.onclick = () => openOrderDetails(Number(item.dataset.orderIndex));
+  });
+}
+
+function openOrderDetails(index) {
+  const root = $('orderRoot');
+  const orders = getOrders();
+  const order = orders[index];
+  if (!order) return openOrderHistory();
+  const status = orderStatus(order);
+  const canCancel = status === 'Processing';
+  root.innerHTML = `
+    <div class="drawer-backdrop" id="orderDetailBack">
+      <aside class="drawer order-drawer">
+        <div class="drawer-head">
+          <button class="order-back" id="backOrders">←</button>
+          <h2>${order.orderNo}</h2>
+          <button class="close-btn" id="closeOrderDetail">×</button>
+        </div>
+        <div class="drawer-items order-detail-view">
+          <div class="order-state status-${status.toLowerCase()}">${status}</div>
+          <p class="order-date">Placed ${new Date(order.date).toLocaleString('en-PH')}</p>
+          <div class="order-summary">
+            <h3>Items</h3>
+            ${(order.items || []).map(item => `
+              <div class="order-history-line"><span>${item.name} · Size ${item.size} × ${item.qty}</span><strong>${money(item.price * item.qty)}</strong></div>
+            `).join('')}
+            <div class="summary-line"><span>Subtotal</span><span>${money(order.subtotal || order.total)}</span></div>
+            <div class="summary-line total"><span>Total</span><span>${money(order.total)}</span></div>
+          </div>
+          <div class="order-details">
+            <h3>Delivery details</h3>
+            <p><strong>${order.address.name}</strong><br>${order.address.phone}${order.address.email ? ` · ${order.address.email}` : ''}</p>
+            <p>${order.address.street}, ${order.address.brgy}<br>${order.address.city}, ${order.address.province} ${order.address.zip}</p>
+          </div>
+          ${canCancel ? '<button class="btn btn-secondary cancel-order" id="cancelOrder">Cancel order</button>' : '<p class="order-lock-note">This order can no longer be cancelled. Contact support to request a return or refund.</p>'}
+        </div>
+      </aside>
+    </div>
+  `;
+  $('closeOrderDetail').onclick = () => root.innerHTML = '';
+  $('orderDetailBack').onclick = e => { if (e.target.id === 'orderDetailBack') root.innerHTML = ''; };
+  $('backOrders').onclick = openOrderHistory;
+  if (canCancel) $('cancelOrder').onclick = () => {
+    const updatedOrders = getOrders();
+    updatedOrders[index].status = 'Cancelled';
+    saveOrders(updatedOrders);
+    toast('Order cancelled');
+    openOrderDetails(index);
+  };
+}
+
 function openWishlist() {
   const root = $('wishRoot');
   const items = wishlist.map(id => PRODUCTS.find(p => p.id === id)).filter(Boolean);
@@ -291,7 +660,7 @@ function openWishlist() {
           <div class="drawer-items">
             ${items.map(p => `
               <div class="cart-item">
-                <img src="${p.image}" alt="${p.name}">
+                <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${p.image}" alt="${p.name}">
                 <div>
                   <h3>${p.name}</h3>
                   <div class="cart-meta">${p.colorway}</div>
@@ -310,6 +679,7 @@ function openWishlist() {
   root.querySelectorAll('[data-unwish]').forEach(b => {
     b.onclick = () => { toggleWish(b.dataset.unwish); openWishlist(); };
   });
+  processPandaImages(root);
 }
 
 /* ===== Cart ===== */
@@ -358,7 +728,7 @@ function openCart() {
               if (!p) return '';
               return `
                 <div class="cart-item">
-                  <img src="${p.image}" alt="${p.name}">
+                  <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${p.image}" alt="${p.name}">
                   <div>
                     <h3>${p.name}</h3>
                     <div class="cart-meta">Size ${l.size} · ${p.colorway}</div>
@@ -376,7 +746,7 @@ function openCart() {
           </div>
           <div class="drawer-foot">
             <div class="subtotal-row"><span>Subtotal</span><span>${money(sub)}</span></div>
-            <p class="ship-note">Shipping calculated at checkout. Metro Davao from ₱120 · Free over ₱8,000.</p>
+            <p class="ship-note">Shipping calculated at checkout. Metro Davao ₱120 · Nationwide ₱180 · Pickup free.</p>
             <button class="btn btn-primary" style="width:100%" id="goCheckout">Checkout →</button>
           </div>
         ` : `
@@ -413,6 +783,7 @@ function openCart() {
       openCart();
     };
   });
+  processPandaImages(root);
 }
 
 $('cartBtn').addEventListener('click', openCart);
@@ -425,8 +796,8 @@ function openDetail(p) {
     <div class="backdrop" id="detailBack">
       <div class="modal">
         <button class="close-btn" id="closeDetail">×</button>
-        <div class="modal-image">
-          <img src="${p.image}" alt="${p.name}">
+        <div class="modal-image ${p.id === 'aj1-low-panda' ? 'panda-visual' : ''}">
+          <img class="${p.id === 'aj1-low-panda' ? 'panda-photo' : ''}" src="${p.image}" alt="${p.name}">
         </div>
         <div class="modal-content">
           <div class="eyebrow">AJ · ${p.colorway}</div>
@@ -463,9 +834,15 @@ function openDetail(p) {
       const addBtn = $('addToBag');
       addBtn.disabled = false;
       addBtn.textContent = `Add Size ${selectedSize} to Bag`;
-      addBtn.onclick = () => addToCart(p, selectedSize);
+      addBtn.onclick = () => {
+        animateCartFlight(p, root.querySelector('.modal-image img'));
+        addBtn.textContent = 'Added ✓';
+        addBtn.classList.add('is-added');
+        addToCart(p, selectedSize);
+      };
     };
   });
+  processPandaImages(root);
 }
 
 /* ===== Checkout with validation ===== */
@@ -553,8 +930,7 @@ function openCheckout() {
   const refreshTotals = () => {
     const sub = cartSubtotal();
     const fee = SHIP_OPTIONS.find(s => s.id === selectedShip).fee;
-    const freeMetro = sub >= 8000 && selectedShip === 'metro';
-    const actualFee = freeMetro ? 0 : fee;
+    const actualFee = selectedShip === 'pickup' ? 0 : fee;
     $('ckShip').textContent = actualFee ? money(actualFee) : 'Free';
     $('ckTotal').textContent = money(sub + actualFee);
   };
@@ -569,11 +945,11 @@ function openCheckout() {
     };
   });
 
-  if ($('memberCk')) $('memberCk').onclick = () => toast('Member sign-in coming soon — continue as Guest');
+  if ($('memberCk')) $('memberCk').onclick = () => currentUser ? toast('You are signed in and can use Guest Checkout') : openAccount();
     $('closeCk').onclick = () => root.innerHTML = '';
   $('ckBack').onclick = e => { if (e.target.id === 'ckBack') root.innerHTML = ''; };
 
-  $('ckForm').onsubmit = e => {
+  $('ckForm').onsubmit = async e => {
     e.preventDefault();
     const name = $('ckName').value.trim();
     const phone = $('ckPhone').value.trim();
@@ -607,22 +983,57 @@ function openCheckout() {
 
     const sub = cartSubtotal();
     const feeOpt = SHIP_OPTIONS.find(s => s.id === selectedShip);
-    const freeMetro = sub >= 8000 && selectedShip === 'metro';
-    const fee = freeMetro ? 0 : feeOpt.fee;
+    const fee = selectedShip === 'pickup' ? 0 : feeOpt.fee;
     const total = sub + fee;
-    const orderNo = 'DV-' + Math.floor(100000 + Math.random() * 899999);
+    let orderNo = 'DV-' + Math.floor(100000 + Math.random() * 899999);
     const shipLabel = selectedShip === 'pickup' ? 'Ready for pickup' : selectedShip === 'metro' ? 'Out for Metro Davao delivery' : 'In transit (nationwide)';
     const shipMeta = selectedShip === 'pickup' ? 'Lanang store · ready in 24 hrs' : selectedShip === 'metro' ? '1–2 days within Metro Davao' : '3–7 days nationwide';
     const etaText = selectedShip === 'pickup' ? 'Ready in 24 hours (Lanang)' : selectedShip === 'metro' ? '1–2 days' : '3–7 days';
 
 
     const history = JSON.parse(localStorage.getItem('nike_orders') || '[]');
+    const orderItems = cart.map(line => {
+      const product = PRODUCTS.find(item => item.id === line.id);
+      return {
+        ...line,
+        name: product ? product.name : line.id,
+        colorway: product ? product.colorway : '',
+        price: product ? product.price : 0,
+        image: product ? product.image : ''
+      };
+    });
+    const shippingDetails = feeOpt ? {
+      id: feeOpt.id,
+      label: feeOpt.label,
+      eta: feeOpt.eta,
+      fee
+    } : null;
+
+    try {
+      const savedOrder = await apiRequest('order', 'POST', {
+        subtotal: sub,
+        shippingId: feeOpt.id,
+        shippingFee: fee,
+        total,
+        address: data,
+        items: orderItems
+      });
+      orderNo = savedOrder.orderNo;
+    } catch (requestError) {
+      err.style.display = 'block';
+      err.textContent = requestError.message;
+      return;
+    }
+
     history.unshift({
       orderNo,
       date: new Date().toISOString(),
+      status: 'Processing',
       total,
-      items: [...cart],
-      address: data
+      subtotal: sub,
+      items: orderItems,
+      address: data,
+      shippingDetails
     });
     localStorage.setItem('nike_orders', JSON.stringify(history.slice(0, 20)));
 
@@ -643,9 +1054,28 @@ function openCheckout() {
 
             <div class="order-summary" style="text-align:left;margin-top:16px">
               <h3>Order summary</h3>
+              <div class="order-items-mini">
+                ${orderItems.map(item => `
+                  <div class="order-item-detail">
+                    <img src="${item.image}" alt="${item.name} ${item.colorway}">
+                    <div>
+                      <strong>${item.name}</strong>
+                      <span>${item.colorway} · Size ${item.size} · Qty ${item.qty}</span>
+                    </div>
+                    <b>${money(item.price * item.qty)}</b>
+                  </div>
+                `).join('')}
+              </div>
               <div class="summary-line"><span>Subtotal</span><span>${money(sub)}</span></div>
               <div class="summary-line"><span>Delivery &amp; handling</span><span>${fee ? money(fee) : 'Free'}</span></div>
               <div class="summary-line total"><span>Total</span><span>${money(total)}</span></div>
+            </div>
+
+            <div class="order-details">
+              <h3>Delivery details</h3>
+              <p><strong>${name}</strong><br>${phone}${email ? ` · ${email}` : ''}</p>
+              <p>${street}, ${brgy}<br>${city}, ${province} ${zip}</p>
+              <p><strong>${feeOpt.label}</strong><br>${fee ? money(fee) : 'Free'} · ${feeOpt.eta}</p>
             </div>
 
             <div class="order-status">
@@ -765,8 +1195,15 @@ function initHeroSpinner() {
 }
 
 /* ===== Boot ===== */
-renderGrid();
-renderCarousel();
-updateCartCount();
-updateWishCount();
-initHeroSpinner();
+async function boot() {
+  await loadCurrentUser();
+  await loadCatalog();
+  renderGrid();
+  renderCarousel();
+  updateCartCount();
+  updateWishCount();
+  initHeroSpinner();
+  initHeroMotion();
+}
+
+boot();
