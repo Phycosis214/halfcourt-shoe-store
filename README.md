@@ -50,6 +50,17 @@ The PHP API is loaded from `api.php`. Make sure MySQL is running before using ac
 
 When an order is placed, the PHP API verifies the price and stock from the database and decreases inventory inside a transaction.
 
+## Supabase and Vercel
+
+The PHP API accepts a PostgreSQL connection URI in `DATABASE_URL` and keeps the existing MySQL defaults for local XAMPP use. The root [Dockerfile](Dockerfile) provides PHP and the `pdo_pgsql` extension for Vercel's Container Runtime.
+
+1. In Supabase, open **SQL Editor** and run [supabase-schema.sql](supabase-schema.sql). It creates the tables and seeds the shoe catalog and shipping methods.
+2. In **Project Settings > Database > Connect**, copy a PostgreSQL URI. For Vercel serverless functions, use the Supabase pooler URI when available. Keep the URI private.
+3. In Vercel, set the project framework/runtime to **Container** if prompted, then open **Settings > Environment Variables** and add `DATABASE_URL` with the full URI for Production (and Preview if needed). Never put this value in frontend files or send it in chat.
+4. Redeploy the Vercel project after saving the environment variable. The root Dockerfile runs the site and `api.php` through PHP's built-in HTTP server and includes `pdo_pgsql`.
+
+To inspect orders, use Supabase **Table Editor** and open `orders`, `order_addresses`, or `order_items`. The `customer_order_details` view combines order and item details and can also be queried in **SQL Editor**. Never place the database URI, its password, or a Supabase service-role key in browser code. Orders will not appear until the deployment has the secret and is redeployed, then checkout succeeds.
+
 ## Notes
 
 - This is a demo storefront. Checkout does not process real payments.

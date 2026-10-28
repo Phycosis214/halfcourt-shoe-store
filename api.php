@@ -13,10 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET' && !in_array($action, ['register', 'log
     exit;
 }
 
-$dsn = getenv('HALFCOURT_DB_DSN') ?: 'mysql:host=127.0.0.1;port=3306;dbname=halfcourt_shoe;charset=utf8mb4';
-$user = getenv('HALFCOURT_DB_USER') ?: 'root';
-$password = getenv('HALFCOURT_DB_PASSWORD') ?: '';
-
 function respond(array $data, int $status = 200): never {
     http_response_code($status);
     echo json_encode($data);
@@ -29,10 +25,36 @@ function requestBody(): array {
 }
 
 try {
-    $db = new PDO($dsn, $user, $password, [
+    $databaseUrl = getenv('DATABASE_URL') ?: '';
+    $dsn = getenv('HALFCOURT_DB_DSN') ?: 'mysql:host=127.0.0.1;port=3306;dbname=halfcourt_shoe;charset=utf8mb4';
+    $user = getenv('HALFCOURT_DB_USER') ?: 'root';
+    $password = getenv('HALFCOURT_DB_PASSWORD') ?: '';
+    $isPostgres = false;
+
+    if (!getenv('HALFCOURT_DB_DSN') && preg_match('/^postgres(?:ql)?:\/\//i', $databaseUrl)) {
+        $urlParts = parse_url($databaseUrl);
+        if (!$urlParts || empty($urlParts['host']) || empty($urlParts['user']) || empty($urlParts['path'])) {
+            respond(['error' => 'Invalid PostgreSQL DATABASE_URL configuration'], 500);
+        }
+        parse_str($urlParts['query'] ?? '', $urlOptions);
+        $sslMode = $urlOptions['sslmode'] ?? 'require';
+        if (!in_array($sslMode, ['disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'], true)) {
+            respond(['error' => 'Invalid PostgreSQL DATABASE_URL configuration'], 500);
+        }
+        $databaseName = rawurldecode(ltrim($urlParts['path'], '/'));
+        $port = (int) ($urlParts['port'] ?? 5432);
+        $dsn = sprintf('pgsql:host=%s;port=%d;dbname=%s;sslmode=%s', $urlParts['host'], $port, $databaseName, $sslMode);
+        $user = rawurldecode($urlParts['user']);
+        $password = rawurldecode($urlParts['pass'] ?? '');
+        $isPostgres = true;
+    }
+
+    $pdoOptions = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
+    ];
+    if ($isPostgres) $pdoOptions[PDO::ATTR_EMULATE_PREPARES] = true;
+    $db = new PDO($dsn, $user, $password, $pdoOptions);
 
     if ($action === 'me') {
         respond(['user' => $_SESSION['member'] ?? null]);
@@ -63,9 +85,12 @@ try {
             $check = $db->prepare('SELECT id FROM customers WHERE email = ?');
             $check->execute([$email]);
             if ($check->fetch()) respond(['error' => 'An account with that email already exists.'], 409);
-            $insert = $db->prepare('INSERT INTO customers (full_name, email, contact_number, address, password_hash) VALUES (?, ?, ?, ?, ?)');
+            $insertSql = 'INSERT INTO customers (full_name, email, contact_number, address, password_hash) VALUES (?, ?, ?, ?, ?)';
+            if ($isPostgres) $insertSql .= ' RETURNING id';
+            $insert = $db->prepare($insertSql);
             $insert->execute([$name, $email, $contactNumber, $accountAddress, password_hash($passwordValue, PASSWORD_DEFAULT)]);
-            $_SESSION['member'] = ['id' => (int) $db->lastInsertId(), 'name' => $name, 'email' => $email, 'contact_number' => $contactNumber, 'address' => $accountAddress];
+            $customerId = (int) ($isPostgres ? $insert->fetchColumn() : $db->lastInsertId());
+            $_SESSION['member'] = ['id' => $customerId, 'name' => $name, 'email' => $email, 'contact_number' => $contactNumber, 'address' => $accountAddress];
             respond(['user' => $_SESSION['member']]);
         }
         if ($action === 'login') {
@@ -92,7 +117,7 @@ try {
             respond(['error' => 'Invalid shipping method.'], 422);
         }
 
-        $productQuery = $db->prepare('SELECT id, name, colorway, price, stock FROM products WHERE id = ? AND is_active = 1 FOR UPDATE');
+        $productQuery = $db->prepare('SELECT id, name, colorway, price, stock FROM products WHERE id = ? AND is_active = TRUE FOR UPDATE');
         $sizeQuery = $db->prepare('SELECT stock FROM product_sizes WHERE product_id = ? AND size = ? FOR UPDATE');
         $decrementProduct = $db->prepare('UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?');
         $decrementSize = $db->prepare('UPDATE product_sizes SET stock = stock - ? WHERE product_id = ? AND size = ? AND stock >= ?');
@@ -148,10 +173,12 @@ try {
         $shippingFee = (float) $shipping['fee'];
         $total = $subtotal + $shippingFee;
         $orderNo = 'DV-' . random_int(100000, 999999);
-        $insert = $db->prepare('INSERT INTO orders (order_no, customer_id, subtotal, shipping_method_id, shipping_fee, total) VALUES (?, ?, ?, ?, ?, ?)');
+        $insertSql = 'INSERT INTO orders (order_no, customer_id, subtotal, shipping_method_id, shipping_fee, total) VALUES (?, ?, ?, ?, ?, ?)';
+        if ($isPostgres) $insertSql .= ' RETURNING id';
+        $insert = $db->prepare($insertSql);
         $customerId = $_SESSION['member']['id'] ?? null;
         $insert->execute([$orderNo, $customerId, $subtotal, $shippingId, $shippingFee, $total]);
-        $orderId = (int) $db->lastInsertId();
+        $orderId = (int) ($isPostgres ? $insert->fetchColumn() : $db->lastInsertId());
         $addressInsert = $db->prepare('INSERT INTO order_addresses (order_id, full_name, phone, email, street, barangay, city, province, zip) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)');
         $addressInsert->execute([$orderId, $address['name'], $address['phone'], $address['email'] ?? null, $address['street'], $address['brgy'], $address['city'], $address['province'], $address['zip']]);
         $itemInsert = $db->prepare('INSERT INTO order_items (order_id, product_id, size, qty, unit_price, name, colorway) VALUES (?, ?, ?, ?, ?, ?, ?)');
@@ -166,7 +193,7 @@ try {
         'SELECT p.id, p.model, p.name, p.colorway, p.price, p.stock, p.badge,
                 p.image_url
          FROM products p
-         WHERE p.is_active = 1
+         WHERE p.is_active = TRUE
          ORDER BY p.created_at, p.id'
     )->fetchAll();
 
